@@ -122,6 +122,33 @@ describe('HTTP API', { skip: !hasDb && 'MONGODB_URI not set' }, () => {
     assert.equal((await call(ordersHandler, { cookie: cookieA })).statusCode, 401);
   });
 
+  test('Vercel-style bodies: oversized pre-parsed body → 413, malformed JSON getter → 400', async () => {
+    const big = fakeReq({ method: 'POST', body: {} });
+    big.body = { action: 'login', email: `a@${'.a'.repeat(20000)}@`, password: 'x' };
+    const r1 = fakeRes();
+    await authHandler(big, r1);
+    assert.equal(r1.statusCode, 413);
+    const broken = fakeReq({ method: 'POST', body: {} });
+    Object.defineProperty(broken, 'body', { get() { throw new SyntaxError('Unexpected token'); } });
+    const r2 = fakeRes();
+    await authHandler(broken, r2);
+    assert.equal(r2.statusCode, 400);
+    const declared = await call(authHandler, { method: 'POST', headers: { 'content-length': '999999' }, body: { action: 'login' } });
+    assert.equal(declared.statusCode, 413);
+  });
+
+  test('logout clears the cookie even when the database is down', async () => {
+    const restore = async () => createStore(ctx.db);
+    setStoreFactory(async () => { throw new Error('db down'); });
+    try {
+      const res = await call(authHandler, { method: 'POST', cookie: cookieB, body: { action: 'logout' } });
+      assert.equal(res.statusCode, 200);
+      assert.match(res.headers['set-cookie'], /Max-Age=0/);
+    } finally {
+      setStoreFactory(restore);
+    }
+  });
+
   test('unknown methods are refused', async () => {
     assert.equal((await call(ordersHandler, { method: 'PUT', cookie: cookieB, body: {} })).statusCode, 405);
     assert.equal((await call(authHandler, { method: 'DELETE' })).statusCode, 405);

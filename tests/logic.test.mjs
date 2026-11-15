@@ -8,7 +8,7 @@ import {
 test('toLatinDigits converts Arabic-Indic and Persian digits and Arabic decimal mark', () => {
   assert.equal(toLatinDigits('١٢٫٥٠٠'), '12.500');
   assert.equal(toLatinDigits('۹۸'), '98');
-  assert.equal(toLatinDigits('١٬٢٠٠'), '1200');
+  assert.equal(toLatinDigits('١٬٢٠٠'), '1,200', 'Arabic thousands mark becomes a comma (then validated)');
 });
 
 test('parseAmount → integer fils', () => {
@@ -20,7 +20,11 @@ test('parseAmount → integer fils', () => {
   assert.deepEqual(parseAmount(3.5), { ok: true, fils: 3500 });
   assert.equal(parseAmount('0').ok, false);
   assert.deepEqual(parseAmount('0', { allowZero: true }), { ok: true, fils: 0 });
-  for (const bad of ['', 'abc', '1.2345', '-3', '1,5', '1e3', '.5', '12.', null, undefined, {}]) {
+  // comma-decimal phone keyboards
+  assert.deepEqual(parseAmount('12,5'), { ok: true, fils: 12500 });
+  assert.deepEqual(parseAmount('12,25'), { ok: true, fils: 12250 });
+  assert.deepEqual(parseAmount('١٢٬٥'), { ok: true, fils: 12500 });
+  for (const bad of ['', 'abc', '1.2345', '-3', '1,250', '1,2,3', '1,5.2', '1e3', '.5', '12.', '1'.repeat(50), null, undefined, {}]) {
     assert.equal(parseAmount(bad).ok, false, `should reject ${JSON.stringify(bad)}`);
   }
   assert.equal(parseAmount('100001').ok, false);
@@ -38,6 +42,10 @@ test('formatKWD always shows 3 decimals and thousands commas', () => {
 test('normalizePhone handles Kuwaiti numbers in many shapes', () => {
   for (const input of ['55512345', '+965 5551 2345', '00965-55512345', '96555512345', '٥٥٥١٢٣٤٥', '(965) 5551-2345']) {
     assert.deepEqual(normalizePhone(input), { ok: true, digits: '96555512345' }, input);
+  }
+  // pasted from iPhone Contacts / WhatsApp: invisible direction marks, non-breaking spaces, Unicode dashes
+  for (const input of ['‎+965 5551 2345‏', '‪5551–2345‬', '⁦٥٥٥١ ٢٣٤٥⁩']) {
+    assert.deepEqual(normalizePhone(input), { ok: true, digits: '96555512345' }, JSON.stringify(input));
   }
   assert.deepEqual(normalizePhone('41234567'), { ok: true, digits: '96541234567' });
   assert.deepEqual(normalizePhone('+966 501234567'), { ok: true, digits: '966501234567' });
@@ -92,7 +100,10 @@ test('nextActions and canSetStatus follow the payment method', () => {
   assert.deepEqual(nextActions({ status: 'unpaid', method: 'link' }).map((a) => a.to), ['paid']);
   assert.deepEqual(nextActions({ status: 'unpaid', method: 'cash_driver' }).map((a) => a.to), ['with_driver', 'paid']);
   assert.deepEqual(nextActions({ status: 'with_driver', method: 'cash_driver' }).map((a) => a.to), ['paid', 'unpaid']);
-  assert.deepEqual(nextActions({ status: 'paid', method: 'cash_driver' }).map((a) => a.to), ['with_driver']);
+  // undo returns to where the order came from
+  assert.deepEqual(nextActions({ status: 'paid', method: 'cash_driver', prevStatus: 'with_driver' }).map((a) => a.to), ['with_driver']);
+  assert.deepEqual(nextActions({ status: 'paid', method: 'cash_driver', prevStatus: 'unpaid' }).map((a) => a.to), ['unpaid']);
+  assert.deepEqual(nextActions({ status: 'paid', method: 'cash_driver' }).map((a) => a.to), ['unpaid']);
   assert.deepEqual(nextActions({ status: 'paid', method: 'transfer' }).map((a) => a.to), ['unpaid']);
   assert.equal(canSetStatus({ method: 'link' }, 'with_driver'), false);
   assert.equal(canSetStatus({ method: 'cash_driver' }, 'with_driver'), true);
@@ -128,4 +139,12 @@ test('validateSignup / validateLogin', () => {
   assert.equal(validateLogin({ email: 'a@b.co', password: '' }).ok, false);
   assert.equal(validateLogin({ email: 'a@b.co', password: 'x' }).ok, true);
   assert.equal(validateLogin({ email: { $ne: null }, password: 'x' }).ok, false);
+});
+
+test('a huge crafted email is rejected fast (no regex blow-up)', () => {
+  const evil = `a@${'.a'.repeat(500_000)}@`;
+  const t = performance.now();
+  assert.equal(validateLogin({ email: evil, password: 'x' }).ok, false);
+  assert.equal(validateSignup({ shopName: 'متجر', email: evil, password: 'secret123' }).ok, false);
+  assert.ok(performance.now() - t < 100, 'must finish in well under 100 ms');
 });

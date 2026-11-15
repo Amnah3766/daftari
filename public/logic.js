@@ -35,8 +35,11 @@ export function toLatinDigits(value) {
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
     .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
     .replace(/٫/g, '.')
-    .replace(/٬/g, '');
+    .replace(/٬/g, ',');
 }
+
+// Invisible direction marks (added when copying from iPhone Contacts / WhatsApp), Unicode dashes, spaces, brackets.
+const PHONE_JUNK = /[\s\-().‐-―​-‏‪-‮⁦-⁩﻿]/g;
 
 /**
  * Parse a KWD amount typed by a person ("12", "12.5", "١٢٫٥٠٠") into integer fils.
@@ -45,8 +48,11 @@ export function toLatinDigits(value) {
 export function parseAmount(input, { allowZero = false, max = LIMITS.maxFils } = {}) {
   if (typeof input === 'number' && Number.isFinite(input)) input = String(input);
   if (typeof input !== 'string') return { ok: false, error: 'اكتب المبلغ' };
-  const s = toLatinDigits(input).replace(/\s+/g, '');
+  if (input.length > 40) return { ok: false, error: 'المبلغ غير صحيح' };
+  let s = toLatinDigits(input).replace(/\s+/g, '');
   if (s === '') return { ok: false, error: 'اكتب المبلغ' };
+  // Phones set to a comma-decimal locale type "12,5" — accept 1–2 digits after one comma; "1,250" stays ambiguous.
+  if (!s.includes('.') && /^\d+,\d{1,2}$/.test(s)) s = s.replace(',', '.');
   if (s.includes(',')) return { ok: false, error: 'استخدم النقطة للكسور، مثل 12.500' };
   const m = s.match(/^(\d{1,6})(?:\.(\d{1,3}))?$/);
   if (!m) return { ok: false, error: 'المبلغ لازم يكون رقم، ولين 3 خانات بعد النقطة (فلس)' };
@@ -72,7 +78,8 @@ export function formatKWD(fils, { unit = true } = {}) {
  */
 export function normalizePhone(input) {
   if (typeof input !== 'string') return { ok: false, error: 'اكتب رقم الزبون' };
-  let d = toLatinDigits(input).replace(/[\s\-().]/g, '');
+  if (input.length > 40) return { ok: false, error: 'الرقم غير صحيح (مثال: 55512345)' };
+  let d = toLatinDigits(input).replace(PHONE_JUNK, '');
   if (d === '') return { ok: false, error: 'اكتب رقم الزبون' };
   if (d.startsWith('+')) d = d.slice(1);
   else if (d.startsWith('00')) d = d.slice(2);
@@ -180,7 +187,8 @@ export function nextActions(order) {
     case 'with_driver':
       return [{ to: 'paid', label: 'سلّمني المندوب' }, { to: 'unpaid', label: 'تراجع' }];
     case 'paid':
-      return [{ to: cash ? 'with_driver' : 'unpaid', label: 'تراجع' }];
+      // Undo goes back to where it came from: «عند المندوب» only if it was there before being paid.
+      return [{ to: cash && order.prevStatus === 'with_driver' ? 'with_driver' : 'unpaid', label: 'تراجع' }];
     default:
       return [];
   }
@@ -194,7 +202,7 @@ export function canSetStatus(order, status) {
 
 function cleanText(v, max) {
   if (typeof v !== 'string') return '';
-  return v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max + 1);
+  return v.slice(0, max * 4 + 64).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max + 1);
 }
 
 /** Validate the "new order" form. Same rules in the browser and on the server. */
@@ -238,9 +246,12 @@ export function validateOrder(input) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** Capped at 255 chars BEFORE any regex runs, so a huge input can't make the check slow. */
 export function normalizeEmail(v) {
-  return typeof v === 'string' ? v.trim().toLowerCase() : '';
+  return typeof v === 'string' ? v.slice(0, 300).trim().toLowerCase().slice(0, 255) : '';
 }
+
+const isEmail = (email) => email.length <= 254 && EMAIL_RE.test(email);
 
 export function validateSignup(input) {
   const src = input && typeof input === 'object' ? input : {};
@@ -249,7 +260,7 @@ export function validateSignup(input) {
   if (shopName.length < 2) errors.shopName = 'اكتب اسم مشروعك';
   else if (shopName.length > LIMITS.shop) errors.shopName = `الاسم طويل (لين ${LIMITS.shop} حرف)`;
   const email = normalizeEmail(src.email);
-  if (!EMAIL_RE.test(email) || email.length > 254) errors.email = 'اكتب إيميل صحيح';
+  if (!isEmail(email)) errors.email = 'اكتب إيميل صحيح';
   const password = typeof src.password === 'string' ? src.password : '';
   if (password.length < LIMITS.passwordMin) errors.password = `كلمة السر لازم ${LIMITS.passwordMin} أحرف أو أكثر`;
   else if (password.length > LIMITS.passwordMax) errors.password = 'كلمة السر طويلة وايد';
@@ -261,7 +272,7 @@ export function validateLogin(input) {
   const src = input && typeof input === 'object' ? input : {};
   const errors = {};
   const email = normalizeEmail(src.email);
-  if (!EMAIL_RE.test(email)) errors.email = 'اكتب إيميل صحيح';
+  if (!isEmail(email)) errors.email = 'اكتب إيميل صحيح';
   const password = typeof src.password === 'string' ? src.password : '';
   if (!password) errors.password = 'اكتب كلمة السر';
   else if (password.length > LIMITS.passwordMax) errors.password = 'كلمة السر طويلة وايد';

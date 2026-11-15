@@ -4,7 +4,7 @@ import dns from 'node:dns';
 import { MongoClient } from 'mongodb';
 for (const line of readFileSync(new URL('../.env.local', import.meta.url), 'utf8').split(/\r?\n/)) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-  if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
 }
 if (process.env.DNS_SERVERS) dns.setServers(process.env.DNS_SERVERS.split(','));
 const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });

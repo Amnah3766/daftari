@@ -114,12 +114,23 @@ function show(view) {
 function signedOut(message) {
   state.user = null;
   state.orders = [];
+  saving = false;
   if ($('#orderDialog').open) $('#orderDialog').close();
   show('landing');
+  setAuthTab('login');
   if (message) toast(message, 'error');
 }
 
+function hidePasswords() {
+  for (const t of $$('[data-pw-toggle]')) {
+    t.parentElement.querySelector('input').type = 'password';
+    t.textContent = 'إظهار';
+    t.setAttribute('aria-label', 'إظهار كلمة السر');
+  }
+}
+
 function setAuthTab(which) {
+  hidePasswords();
   for (const b of $$('[data-auth-tab]')) b.setAttribute('aria-selected', String(b.dataset.authTab === which));
   $('#signupForm').hidden = which !== 'signup';
   $('#loginForm').hidden = which !== 'login';
@@ -147,7 +158,7 @@ function renderStats() {
   $('#sDriver').textContent = formatKWD(s.driver);
   $('#sDriverSub').textContent = s.driverCount ? `${s.driverCount} طلب، لازم يسلّمك` : 'ما عنده شي لك';
   $('#sUnpaid').textContent = formatKWD(s.unpaid);
-  $('#sUnpaidSub').textContent = s.unpaidCount ? `${s.unpaidCount} زبون` : 'الكل دفع 👏';
+  $('#sUnpaidSub').textContent = s.unpaidCount ? `${s.unpaidCount === 1 ? 'طلب واحد' : `${s.unpaidCount} طلب`} ما انقبض` : 'ما في شي معلّق';
   $('#cUnpaid').textContent = String(s.unpaidCount);
   $('#cDriver').textContent = String(s.driverCount);
   $('#cMonth').textContent = String(s.monthCount);
@@ -168,7 +179,7 @@ function visibleOrders() {
 }
 
 const EMPTY = {
-  unpaid: ['ما في أحد باقي عليه شي', 'كل الطلبات وصلتك فلوسها. أضف طلب جديد من زر «طلب جديد».'],
+  unpaid: ['ما في زبون باقي عليه فلوس', 'لما تسجل طلب جديد من زر «+»، يطلع هني لين توصلك فلوسه.'],
   with_driver: ['المندوب ما عنده كاش لك', 'لما يستلم كاش من زبون، اضغط «استلم المندوب الكاش» على الطلب.'],
   month: ['ما في طلبات بهالشهر', 'أول طلب تسجله يطلع هني.'],
 };
@@ -272,16 +283,19 @@ async function changeStatus(order, action, button) {
 }
 
 async function removeOrder(order, button) {
+  const disarm = () => {
+    button.dataset.armed = '';
+    button.classList.remove('armed');
+    button.textContent = 'حذف';
+    button.setAttribute('aria-label', `حذف طلب ${order.customerName}`);
+  };
   if (button.dataset.armed !== '1') {
     button.dataset.armed = '1';
     button.classList.add('armed');
     button.textContent = 'متأكد؟ اضغط مرة ثانية';
+    button.setAttribute('aria-label', `متأكد؟ اضغط مرة ثانية لحذف طلب ${order.customerName}`);
     setTimeout(() => {
-      if (button.isConnected && button.dataset.armed === '1') {
-        button.dataset.armed = '';
-        button.classList.remove('armed');
-        button.textContent = 'حذف';
-      }
+      if (button.isConnected && button.dataset.armed === '1') disarm();
     }, 4000);
     return;
   }
@@ -299,13 +313,18 @@ async function removeOrder(order, button) {
       return;
     }
     setBusy(button, false);
-    button.classList.remove('armed');
-    button.textContent = 'حذف';
+    disarm();
     if (err.status !== 401) toast(err.message, 'error');
   }
 }
 
 /* ---------------- new order dialog ---------------- */
+
+let saving = false; // while a save is in flight the sheet can't be closed (no stale result later)
+
+function closeOrderDialog() {
+  if (!saving) $('#orderDialog').close();
+}
 
 function openOrderDialog() {
   const form = $('#orderForm');
@@ -343,6 +362,8 @@ async function submitOrder(ev) {
     return;
   }
   setErrors(form, {});
+  if (saving) return;
+  saving = true;
   const button = $('button[type="submit"]', form);
   setBusy(button, true, 'نحفظ…');
   try {
@@ -357,6 +378,7 @@ async function submitOrder(ev) {
         method: values.method,
       },
     });
+    saving = false;
     state.orders = [order, ...state.orders];
     state.tab = 'unpaid';
     state.monthOffset = 0;
@@ -366,6 +388,7 @@ async function submitOrder(ev) {
   } catch (err) {
     if (err.status !== 401) setErrors(form, err.data?.fields || {}, err.message);
   } finally {
+    saving = false;
     setBusy(button, false);
   }
 }
@@ -390,6 +413,7 @@ async function submitAuth(ev, kind) {
     state.tab = 'unpaid';
     state.monthOffset = 0;
     form.reset();
+    hidePasswords();
     await loadOrders();
     toast(kind === 'signup' ? `هلا ${user.shopName}! دفترك جاهز 🎉` : `هلا فيك، ${user.shopName}`);
   } catch (err) {
@@ -404,13 +428,13 @@ async function logout() {
   setBusy(button, true, '…');
   try {
     await api('/api/auth', { method: 'POST', body: { action: 'logout' } });
-  } catch {
-    // even if the network fails, leave the app view
-  } finally {
+  } catch (err) {
     setBusy(button, false);
+    toast(err.status === 0 ? 'ما قدرنا نطلعك، تأكد من الاتصال' : err.message, 'error');
+    return;
   }
+  setBusy(button, false);
   signedOut();
-  setAuthTab('login');
   toast('طلعت من حسابك. نشوفك قريب 👋');
 }
 
@@ -465,9 +489,19 @@ function wire() {
   form.addEventListener('submit', submitOrder);
   form.elements.price.addEventListener('input', updateProfitHint);
   form.elements.cost.addEventListener('input', updateProfitHint);
-  for (const b of $$('[data-close]', form)) b.addEventListener('click', () => $('#orderDialog').close());
-  $('#orderDialog').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) e.currentTarget.close(); // tap on the dimmed background
+  for (const b of $$('[data-close]', form)) b.addEventListener('click', closeOrderDialog);
+  const dialog = $('#orderDialog');
+  dialog.addEventListener('cancel', (e) => {
+    if (saving) e.preventDefault(); // Escape while saving
+  });
+  // Close on a tap on the dimmed background — only if the press also STARTED there (not a text-selection drag).
+  let downOnBackdrop = false;
+  dialog.addEventListener('pointerdown', (e) => {
+    downOnBackdrop = e.target === dialog;
+  });
+  dialog.addEventListener('click', (e) => {
+    if (downOnBackdrop && e.target === dialog) closeOrderDialog();
+    downOnBackdrop = false;
   });
 }
 

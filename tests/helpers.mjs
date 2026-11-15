@@ -10,7 +10,7 @@ export function loadEnv() {
     const text = readFileSync(new URL('../.env.local', import.meta.url), 'utf8');
     for (const line of text.split(/\r?\n/)) {
       const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
-      if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
+      if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
     }
   } catch {
     // no .env.local

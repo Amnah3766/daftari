@@ -52,6 +52,17 @@ describe('store (MongoDB)', { skip: !hasDb && 'MONGODB_URI not set' }, () => {
     assert.equal(again.user.email, 'lock@example.test');
   });
 
+  test('parallel wrong guesses cannot get past the 5-attempt lock', async () => {
+    await store.signup({ shopName: 'هجوم', email: 'burst@example.test', password: 'rightpass2' });
+    const results = await Promise.allSettled(
+      Array.from({ length: 20 }, () => store.login({ email: 'burst@example.test', password: 'wrongpass' })),
+    );
+    const codes = results.map((r) => r.reason?.code);
+    assert.ok(codes.every((c) => c === 'bad_credentials' || c === 'locked'), codes.join(','));
+    assert.ok(codes.filter((c) => c === 'bad_credentials').length <= 5, `at most 5 checked, got ${codes.join(',')}`);
+    await assert.rejects(store.login({ email: 'burst@example.test', password: 'rightpass2' }), { code: 'locked' });
+  });
+
   test('logout kills the session; expired or junk tokens give no user', async () => {
     const { token } = await store.login({ email: 'noura@example.test', password: 'secret123' });
     assert.ok(await store.sessionUser(token));
@@ -83,9 +94,16 @@ describe('store (MongoDB)', { skip: !hasDb && 'MONGODB_URI not set' }, () => {
     assert.equal(d.status, 'with_driver');
     const p = await store.setStatus(user.id, a.id, 'paid');
     assert.equal(p.status, 'paid');
+    assert.equal(p.prevStatus, 'with_driver', 'remembers where it came from (for undo)');
     assert.ok(p.paidAt);
     const back = await store.setStatus(user.id, a.id, 'with_driver');
     assert.equal(back.paidAt, null);
+    // a cash order paid directly (driver step skipped) remembers «unpaid»
+    const direct = await store.addOrder(user.id, order({ customerName: 'مباشر' }));
+    const directPaid = await store.setStatus(user.id, direct.id, 'paid');
+    assert.equal(directPaid.prevStatus, 'unpaid');
+    assert.equal((await store.listOrders(user.id)).find((o) => o.id === direct.id).prevStatus, 'unpaid');
+    await store.deleteOrder(user.id, direct.id);
     await assert.rejects(store.setStatus(user.id, b.id, 'with_driver'), { code: 'bad_status' });
     await assert.rejects(store.setStatus(user.id, b.id, 'refunded'), { code: 'bad_status' });
     await assert.rejects(store.setStatus(user.id, 'not-an-id', 'paid'), { code: 'bad_id' });
