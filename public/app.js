@@ -284,6 +284,7 @@ async function changeStatus(order, action, button) {
 
 async function removeOrder(order, button) {
   const disarm = () => {
+    clearTimeout(button.disarmTimer);
     button.dataset.armed = '';
     button.classList.remove('armed');
     button.textContent = 'حذف';
@@ -294,12 +295,15 @@ async function removeOrder(order, button) {
     button.classList.add('armed');
     button.textContent = 'متأكد؟ اضغط مرة ثانية';
     button.setAttribute('aria-label', `متأكد؟ اضغط مرة ثانية لحذف طلب ${order.customerName}`);
-    setTimeout(() => {
+    clearTimeout(button.disarmTimer);
+    button.disarmTimer = setTimeout(() => {
       if (button.isConnected && button.dataset.armed === '1') disarm();
     }, 4000);
     return;
   }
+  clearTimeout(button.disarmTimer);
   button.dataset.armed = '';
+  button.setAttribute('aria-label', `نحذف طلب ${order.customerName}…`);
   setBusy(button, true, 'نحذف…');
   try {
     await api('/api/orders', { method: 'DELETE', body: { id: order.id } });
@@ -327,6 +331,10 @@ function closeOrderDialog() {
 }
 
 function openOrderDialog() {
+  if (saving) {
+    toast('لحظة، نحفظ الطلب اللي قبل', 'error');
+    return;
+  }
   const form = $('#orderForm');
   form.reset();
   setErrors(form, {});
@@ -386,7 +394,10 @@ async function submitOrder(ev) {
     render();
     toast('انحفظ الطلب ✅');
   } catch (err) {
-    if (err.status !== 401) setErrors(form, err.data?.fields || {}, err.message);
+    if (err.status !== 401) {
+      setErrors(form, err.data?.fields || {}, err.message);
+      if (!$('#orderDialog').open) toast(err.message, 'error');
+    }
   } finally {
     saving = false;
     setBusy(button, false);
@@ -493,6 +504,10 @@ function wire() {
   const dialog = $('#orderDialog');
   dialog.addEventListener('cancel', (e) => {
     if (saving) e.preventDefault(); // Escape while saving
+  });
+  // Browsers may force-close it anyway (2nd Escape / Android back) — reopen so the result shows on the typed form.
+  dialog.addEventListener('close', () => {
+    if (saving) dialog.showModal();
   });
   // Close on a tap on the dimmed background — only if the press also STARTED there (not a text-selection drag).
   let downOnBackdrop = false;

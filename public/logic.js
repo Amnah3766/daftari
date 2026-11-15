@@ -79,7 +79,7 @@ export function formatKWD(fils, { unit = true } = {}) {
 export function normalizePhone(input) {
   if (typeof input !== 'string') return { ok: false, error: 'اكتب رقم الزبون' };
   if (input.length > 40) return { ok: false, error: 'الرقم غير صحيح (مثال: 55512345)' };
-  let d = toLatinDigits(input).replace(PHONE_JUNK, '');
+  let d = toLatinDigits(input.replace(/٬/g, '')).replace(PHONE_JUNK, '');
   if (d === '') return { ok: false, error: 'اكتب رقم الزبون' };
   if (d.startsWith('+')) d = d.slice(1);
   else if (d.startsWith('00')) d = d.slice(2);
@@ -248,7 +248,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** Capped at 255 chars BEFORE any regex runs, so a huge input can't make the check slow. */
 export function normalizeEmail(v) {
-  return typeof v === 'string' ? v.slice(0, 300).trim().toLowerCase().slice(0, 255) : '';
+  // trim FIRST, then cut: a long input stays long (and fails the ≤254 check) instead of being shortened into a valid one
+  return typeof v === 'string' ? v.trim().slice(0, 255).toLowerCase() : '';
 }
 
 const isEmail = (email) => email.length <= 254 && EMAIL_RE.test(email);

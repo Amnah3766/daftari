@@ -1,5 +1,6 @@
 // Removes the throw-away test sellers (emails ending in @example.test) and their orders/sessions.
-// Local only: node scripts/cleanup-test-users.mjs   (reads MONGODB_URI from .env.local)
+// Local only: node scripts/cleanup-test-users.mjs [prefix]   (reads MONGODB_URI from .env.local)
+// With a prefix (e.g. "smoke-") only those test emails are removed.
 import { readFileSync } from 'node:fs';
 import { MongoClient } from 'mongodb';
 import { localDnsOptions } from '../lib/db.js';
@@ -12,7 +13,9 @@ const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeout
 await client.connect();
 try {
   const db = client.db(process.env.MONGODB_DB || 'daftari');
-  const testUsers = await db.collection('users').find({ email: /@example\.test$/ }, { projection: { _id: 1, email: 1 } }).toArray();
+  const prefix = (process.argv[2] || '').replace(/[^a-z0-9._-]/gi, '');
+  const pattern = new RegExp(`^${prefix.replace(/[.]/g, '\\.')}.*@example\\.test$`);
+  const testUsers = await db.collection('users').find({ email: pattern }, { projection: { _id: 1, email: 1 } }).toArray();
   const ids = testUsers.map((u) => u._id);
   const o = await db.collection('orders').deleteMany({ owner: { $in: ids } });
   const s = await db.collection('sessions').deleteMany({ userId: { $in: ids } });

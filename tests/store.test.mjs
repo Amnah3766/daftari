@@ -52,6 +52,23 @@ describe('store (MongoDB)', { skip: !hasDb && 'MONGODB_URI not set' }, () => {
     assert.equal(again.user.email, 'lock@example.test');
   });
 
+  test('old wrong guesses never lock the owner out later', async () => {
+    await store.signup({ shopName: 'قديم', email: 'later@example.test', password: 'rightpass3' });
+    for (let i = 0; i < 5; i += 1) {
+      await assert.rejects(store.login({ email: 'later@example.test', password: 'wrongpass' }), { code: i < 4 ? 'bad_credentials' : 'bad_credentials' });
+    }
+    const saved = clock;
+    clock = new Date(clock.getTime() + 24 * 3600 * 1000); // a day later
+    const ok = await store.login({ email: 'later@example.test', password: 'rightpass3' });
+    assert.equal(ok.user.email, 'later@example.test', '5 wrong guesses yesterday must not lock today');
+    for (let i = 0; i < 4; i += 1) {
+      await assert.rejects(store.login({ email: 'later@example.test', password: 'wrongpass' }), { code: 'bad_credentials' });
+    }
+    clock = new Date(clock.getTime() + 24 * 3600 * 1000);
+    assert.equal((await store.login({ email: 'later@example.test', password: 'rightpass3' })).user.email, 'later@example.test');
+    clock = saved;
+  });
+
   test('parallel wrong guesses cannot get past the 5-attempt lock', async () => {
     await store.signup({ shopName: 'هجوم', email: 'burst@example.test', password: 'rightpass2' });
     const results = await Promise.allSettled(

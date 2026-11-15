@@ -41,7 +41,7 @@ MVP لمشروع FinTech (CODED · UniCODE · Web with AI، اليوم السا�
 ```bash
 npm install     # مكتبة وحدة: mongodb
 npm start       # http://localhost:5320
-npm test        # 30 اختبار: المبالغ، الحسابات وقفلها، فصل بيانات كل مشروع، والـ API
+npm test        # 31 اختبار: المبالغ، الحسابات وقفلها، فصل بيانات كل مشروع، والـ API
 ```
 
 ## الرؤية (مو بالـ MVP)

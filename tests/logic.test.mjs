@@ -47,6 +47,7 @@ test('normalizePhone handles Kuwaiti numbers in many shapes', () => {
   for (const input of ['‎+965 5551 2345‏', '‪5551–2345‬', '⁦٥٥٥١ ٢٣٤٥⁩']) {
     assert.deepEqual(normalizePhone(input), { ok: true, digits: '96555512345' }, JSON.stringify(input));
   }
+  assert.deepEqual(normalizePhone('٥٥٥١٬٢٣٤٥'), { ok: true, digits: '96555512345' }, 'Arabic thousands mark inside a number');
   assert.deepEqual(normalizePhone('41234567'), { ok: true, digits: '96541234567' });
   assert.deepEqual(normalizePhone('+966 501234567'), { ok: true, digits: '966501234567' });
   for (const bad of ['', '1234', '05551234', '35551234', '9655551234', 'abc12345678', '0096512345678']) {
@@ -147,4 +148,7 @@ test('a huge crafted email is rejected fast (no regex blow-up)', () => {
   assert.equal(validateLogin({ email: evil, password: 'x' }).ok, false);
   assert.equal(validateSignup({ shopName: 'متجر', email: evil, password: 'secret123' }).ok, false);
   assert.ok(performance.now() - t < 100, 'must finish in well under 100 ms');
+  // padding with spaces must not shorten an invalid address into a valid one
+  assert.equal(validateLogin({ email: `a@b.co${' '.repeat(300)}junk`, password: 'x' }).ok, false);
+  assert.equal(validateSignup({ shopName: 'متجر', email: `user@example.com${' '.repeat(284)}.attacker.net`, password: 'secret123' }).ok, false);
 });
