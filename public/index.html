@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>دفتري — دفتر طلبات مشروعك</title>
+  <meta name="description" content="دفتري: سجّل طلبات مشروعك المنزلي، واعرف منو دفع ومنو باقي، وكم كاش عند المندوب، وكم ربحت صج هالشهر.">
+  <meta name="theme-color" content="#1d2433">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <a class="brand" href="/" aria-label="دفتري — الرئيسية">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="6" y="3" width="21" height="26" rx="4" fill="#1d2433"/>
+          <rect x="6" y="3" width="6" height="26" rx="3" fill="#e2583e"/>
+          <path d="M16 11h7M16 16h7M16 21h4" stroke="#fbf7f0" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span>دفتري</span>
+      </a>
+      <div class="who" id="who" hidden>
+        <span class="shop" id="shopName"></span>
+        <button type="button" class="btn ghost sm" id="logoutBtn">خروج</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="boot" class="boot" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>لحظة، نفتح دفترك…</span>
+    </div>
+
+    <!-- ===================== قبل الدخول ===================== -->
+    <section id="landing" hidden>
+      <div class="wrap hero">
+        <div class="hero-copy">
+          <span class="eyebrow">للمشاريع المنزلية بالكويت</span>
+          <h1>دفترك اللي يعرف <mark>منو دفع</mark> ومنو باقي</h1>
+          <p class="lead">
+            سجّل طلبات مشروعك بثواني، وذكّر الزبون بالواتساب بضغطة، واعرف كم كاش عند المندوب
+            وكم ربحت صج هالشهر. بدون جداول، وبدون إحراج.
+          </p>
+
+          <ul class="features">
+            <li>
+              <span class="f-ico f-coral" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 3h10a2 2 0 0 1 2 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V5a2 2 0 0 1 2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </span>
+              <div><strong>سجّل الطلب بثواني</strong><span>الزبون، رقمه، المنتج، السعر، وطريقة الدفع.</span></div>
+            </li>
+            <li>
+              <span class="f-ico f-green" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 10.5c.4 1.6 1.9 3.1 3.5 3.5l1.2-1.2 2 .8-.4 1.6c-3.4.4-7.4-3.6-7-7l1.6-.4.8 2-1.7.7Z" fill="currentColor"/></svg>
+              </span>
+              <div><strong>ذكّر بالواتساب بضغطة</strong><span>رسالة مؤدبة جاهزة باسم الزبون والمبلغ.</span></div>
+            </li>
+            <li>
+              <span class="f-ico f-amber" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="17" r="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9.5 17h5.5l-2-6h-4M13 11l1.5-4H18M4.5 17V13h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <div><strong>اعرف الكاش اللي عند المندوب</strong><span>وربحك الصافي بعد التكاليف، كل شهر.</span></div>
+            </li>
+          </ul>
+
+          <div class="preview" aria-label="مثال على لوحة الشهر">
+            <div class="preview-head"><span>مثال: لوحة الشهر</span><span class="dot-row" aria-hidden="true"><i></i><i></i><i></i></span></div>
+            <div class="preview-grid">
+              <div><small>مبيعات الشهر</small><b>1,240.500</b></div>
+              <div><small>الربح الصافي</small><b class="t-green">486.250</b></div>
+              <div><small>عند المندوب</small><b class="t-amber">37.000</b></div>
+              <div><small>باقي ما دفعوا</small><b class="t-coral">64.750</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="auth-card" id="authCard">
+          <div class="auth-tabs" role="tablist" aria-label="الدخول أو حساب جديد">
+            <button type="button" role="tab" class="auth-tab" id="tabSignup" aria-selected="true" aria-controls="signupForm" data-auth-tab="signup">حساب جديد</button>
+            <button type="button" role="tab" class="auth-tab" id="tabLogin" aria-selected="false" aria-controls="loginForm" data-auth-tab="login">عندي حساب</button>
+          </div>
+
+          <form id="signupForm" class="form" role="tabpanel" aria-labelledby="tabSignup" novalidate>
+            <h2 class="form-title">افتح دفترك ببلاش</h2>
+            <label class="field">
+              <span>اسم مشروعك</span>
+              <input name="shopName" type="text" autocomplete="organization" maxlength="40" placeholder="مثال: حلويات نورة" required>
+              <em class="err" data-error-for="shopName"></em>
+            </label>
+            <label class="field">
+              <span>الإيميل</span>
+              <input name="email" type="email" dir="ltr" autocomplete="email" inputmode="email" placeholder="name@example.com" required>
+              <em class="err" data-error-for="email"></em>
+            </label>
+            <label class="field">
+              <span>كلمة السر <small>(8 أحرف أو أكثر)</small></span>
+              <span class="pw">
+                <input name="password" type="password" dir="ltr" autocomplete="new-password" minlength="8" maxlength="128" required>
+                <button type="button" class="pw-toggle" data-pw-toggle aria-label="إظهار كلمة السر">إظهار</button>
+              </span>
+              <em class="err" data-error-for="password"></em>
+            </label>
+            <p class="form-error" role="alert"></p>
+            <button type="submit" class="btn accent block">سوّ حسابي</button>
+          </form>
+
+          <form id="loginForm" class="form" role="tabpanel" aria-labelledby="tabLogin" novalidate hidden>
+            <h2 class="form-title">هلا فيك من جديد</h2>
+            <label class="field">
+              <span>الإيميل</span>
+              <input name="email" type="email" dir="ltr" autocomplete="email" inputmode="email" placeholder="name@example.com" required>
+              <em class="err" data-error-for="email"></em>
+            </label>
+            <label class="field">
+              <span>كلمة السر</span>
+              <span class="pw">
+                <input name="password" type="password" dir="ltr" autocomplete="current-password" maxlength="128" required>
+                <button type="button" class="pw-toggle" data-pw-toggle aria-label="إظهار كلمة السر">إظهار</button>
+              </span>
+              <em class="err" data-error-for="password"></em>
+            </label>
+            <p class="form-error" role="alert"></p>
+            <button type="submit" class="btn primary block">دخول</button>
+          </form>
+          <p class="auth-note">بياناتك خاصة فيك. كل مشروع يشوف طلباته بس.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== بعد الدخول ===================== -->
+    <section id="app" hidden>
+      <div class="wrap">
+        <div class="month-bar">
+          <button type="button" class="icon-btn" id="prevMonth" aria-label="الشهر اللي طاف">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="month-title">
+            <small>لوحة الشهر</small>
+            <h2 id="monthLabel"></h2>
+          </div>
+          <button type="button" class="icon-btn" id="nextMonth" aria-label="الشهر الجاي">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+
+        <div class="stats">
+          <article class="stat s-ink">
+            <span class="s-label">مبيعات الشهر</span>
+            <strong class="s-value" id="sSales"></strong>
+            <small class="s-sub" id="sSalesSub"></small>
+          </article>
+          <article class="stat s-green">
+            <span class="s-label">الربح الصافي</span>
+            <strong class="s-value" id="sProfit"></strong>
+            <small class="s-sub" id="sProfitSub"></small>
+          </article>
+          <article class="stat s-amber">
+            <span class="s-label">الكاش عند المندوب</span>
+            <strong class="s-value" id="sDriver"></strong>
+            <small class="s-sub" id="sDriverSub"></small>
+          </article>
+          <article class="stat s-coral">
+            <span class="s-label">باقي ما دفعوا</span>
+            <strong class="s-value" id="sUnpaid"></strong>
+            <small class="s-sub" id="sUnpaidSub"></small>
+          </article>
+        </div>
+
+        <div class="list-head">
+          <div class="tabs" role="tablist" aria-label="الطلبات">
+            <button type="button" role="tab" class="tab" data-tab="unpaid">باقي ما دفعوا <span class="count" id="cUnpaid">0</span></button>
+            <button type="button" role="tab" class="tab" data-tab="with_driver">عند المندوب <span class="count" id="cDriver">0</span></button>
+            <button type="button" role="tab" class="tab" data-tab="month"><span id="monthTabLabel">طلبات الشهر</span> <span class="count" id="cMonth">0</span></button>
+          </div>
+          <button type="button" class="btn accent new-order-btn" id="newOrderBtn">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+            طلب جديد
+          </button>
+        </div>
+
+        <ul class="orders" id="orderList" aria-live="polite"></ul>
+        <div class="empty" id="empty" hidden>
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="14" y="8" width="38" height="48" rx="6" fill="#fff" stroke="#e6dccb" stroke-width="2"/><rect x="14" y="8" width="9" height="48" rx="4" fill="#f7d9d1"/><path d="M29 22h16M29 30h16M29 38h10" stroke="#d9cdb8" stroke-width="3" stroke-linecap="round"/></svg>
+          <strong id="emptyTitle"></strong>
+          <span id="emptyText"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <button type="button" class="fab" id="fab" aria-label="طلب جديد" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+  </button>
+
+  <dialog id="orderDialog" aria-labelledby="orderDialogTitle">
+    <form id="orderForm" class="form sheet" method="dialog" novalidate>
+      <div class="sheet-head">
+        <h2 id="orderDialogTitle">طلب جديد</h2>
+        <button type="button" class="icon-btn" data-close aria-label="إغلاق">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="grid2">
+        <label class="field">
+          <span>اسم الزبون</span>
+          <input name="customerName" type="text" maxlength="60" autocomplete="off" placeholder="مثال: أم محمد" required>
+          <em class="err" data-error-for="customerName"></em>
+        </label>
+        <label class="field">
+          <span>رقم الزبون <small>(للواتساب)</small></span>
+          <input name="customerPhone" type="tel" dir="ltr" inputmode="tel" autocomplete="off" placeholder="55512345" required>
+          <em class="err" data-error-for="customerPhone"></em>
+        </label>
+      </div>
+      <label class="field">
+        <span>المنتج</span>
+        <input name="item" type="text" maxlength="80" autocomplete="off" placeholder="مثال: بوكس شوكولاتة 12 حبة" required>
+        <em class="err" data-error-for="item"></em>
+      </label>
+      <div class="grid2">
+        <label class="field">
+          <span>السعر <small>(د.ك)</small></span>
+          <input name="price" type="text" dir="ltr" inputmode="decimal" autocomplete="off" placeholder="12.500" required>
+          <em class="err" data-error-for="price"></em>
+        </label>
+        <label class="field">
+          <span>التكلفة عليك <small>(اختياري)</small></span>
+          <input name="cost" type="text" dir="ltr" inputmode="decimal" autocomplete="off" placeholder="5.250">
+          <em class="err" data-error-for="cost"></em>
+        </label>
+      </div>
+      <p class="profit-hint" id="profitHint" aria-live="polite"></p>
+      <fieldset class="field methods">
+        <legend>طريقة الدفع</legend>
+        <div class="chips">
+          <label class="chip"><input type="radio" name="method" value="link"><span>رابط دفع</span></label>
+          <label class="chip"><input type="radio" name="method" value="cash_driver"><span>كاش مع المندوب</span></label>
+          <label class="chip"><input type="radio" name="method" value="transfer"><span>تحويل بنكي</span></label>
+        </div>
+        <em class="err" data-error-for="method"></em>
+      </fieldset>
+      <p class="form-error" role="alert"></p>
+      <div class="sheet-actions">
+        <button type="submit" class="btn accent">حفظ الطلب</button>
+        <button type="button" class="btn ghost" data-close>إلغاء</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <footer class="foot">
+    <div class="wrap">دفتري · ابنِ صغير، وفكر كبير · CODED Web with AI</div>
+  </footer>
+</body>
+</html>

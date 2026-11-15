@@ -1,0 +1,18 @@
+{
+  "name": "daftari",
+  "version": "1.0.0",
+  "private": true,
+  "description": "دفتري — دفتر طلبات المشاريع المنزلية: منو دفع، منو باقي، كم كاش عند المندوب، وكم ربحت صج.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.mjs\""
+  },
+  "dependencies": {
+    "mongodb": "7.8.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}
