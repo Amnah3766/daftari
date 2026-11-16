@@ -1,4 +1,4 @@
-// دفتري local server: serves public/ and the same /api handlers Vercel runs (api/auth.js, api/orders.js).
+// دفتري local server: serves public/ and the same /api handlers Vercel runs (api/auth.js, api/orders.js, api/pay.js).
 // Reads MONGODB_URI (and optional DNS_SERVERS) from the environment or from .env.local.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -18,7 +18,7 @@ try {
   // no .env.local — settings come from the environment
 }
 
-const { authHandler, ordersHandler } = await import('./lib/handlers.js');
+const { authHandler, ordersHandler, payHandler } = await import('./lib/handlers.js');
 const vercel = JSON.parse(await readFile(join(root, 'vercel.json'), 'utf8'));
 const HEADERS = Object.fromEntries(vercel.headers[0].headers.map((h) => [h.key, h.value]));
 
@@ -33,7 +33,7 @@ const TYPES = {
   '.ico': 'image/x-icon',
 };
 
-const API = { '/api/auth': authHandler, '/api/orders': ordersHandler };
+const API = { '/api/auth': authHandler, '/api/orders': ordersHandler, '/api/pay': payHandler };
 
 const server = http.createServer(async (req, res) => {
   for (const [k, v] of Object.entries(HEADERS)) res.setHeader(k, v);
@@ -56,6 +56,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (pathname.endsWith('/')) pathname += 'index.html';
+  else if (!extname(pathname)) pathname += '.html'; // like Vercel's cleanUrls: /pay → pay.html
   const file = resolve(publicDir, `.${pathname}`);
   if (!file.startsWith(publicDir + sep)) {
     res.statusCode = 403;

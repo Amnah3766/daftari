@@ -1,9 +1,37 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canSetStatus, displayPhone, formatKWD, kuwaitMonthRange, nextActions, normalizePhone, parseAmount,
-  reminderText, shortDate, summarize, toLatinDigits, validateLogin, validateOrder, validateSignup, waLink,
+  canSetStatus, displayPhone, formatCardNumber, formatKWD, kuwaitMonthRange, nextActions, normalizePhone, parseAmount,
+  payUrl, reminderText, shortDate, summarize, testCardOutcome, toLatinDigits, validateLogin, validateOrder,
+  validateSignup, validExpiry, waLink,
 } from '../public/logic.js';
+
+test('reminder for a «رابط دفع» order carries the customer\'s payment link', () => {
+  const link = payUrl('https://daftari.example/', 'A'.repeat(32));
+  assert.equal(link, `https://daftari.example/pay?t=${'A'.repeat(32)}`);
+  const text = reminderText({ customerName: 'نورة', item: 'كيكة', priceFils: 8500, shopName: 'حلويات سارة', payUrl: link });
+  assert.ok(text.includes(link));
+  assert.match(text, /تدفع من هالرابط/);
+  assert.ok(!text.includes('إذا حوّلت'), 'no "if you transferred" line on a link order');
+  const decoded = decodeURIComponent(waLink('96555512345', text).split('text=')[1]);
+  assert.equal(decoded, text);
+});
+
+test('test gateway: only Stripe\'s published test cards, the rest is not a test card', () => {
+  assert.equal(testCardOutcome('4242 4242 4242 4242'), 'success');
+  assert.equal(testCardOutcome('٤٢٤٢٤٢٤٢٤٢٤٢٤٢٤٢'), 'success');
+  assert.equal(testCardOutcome('4000-0000-0000-0002'), 'declined');
+  assert.equal(testCardOutcome('5555 5555 5555 4444'), null);
+  assert.equal(testCardOutcome(''), null);
+  assert.equal(formatCardNumber('4242424242424242999'), '4242 4242 4242 4242');
+  assert.equal(formatCardNumber('42a42'), '4242');
+  const now = new Date('2026-11-16T10:00:00Z');
+  assert.ok(validExpiry('12/30', now));
+  assert.ok(validExpiry('11/26', now));
+  assert.ok(!validExpiry('10/26', now));
+  assert.ok(!validExpiry('13/30', now));
+  assert.ok(!validExpiry('1230', now));
+});
 
 test('toLatinDigits converts Arabic-Indic and Persian digits and Arabic decimal mark', () => {
   assert.equal(toLatinDigits('١٢٫٥٠٠'), '12.500');

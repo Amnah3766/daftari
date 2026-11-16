@@ -1,6 +1,6 @@
 // دفتري — page logic. All user text goes in with textContent (never innerHTML), so names can't inject HTML.
 import {
-  METHODS, STATUSES, displayPhone, formatKWD, kuwaitMonthRange, nextActions, parseAmount, reminderText,
+  METHODS, STATUSES, displayPhone, formatKWD, kuwaitMonthRange, nextActions, parseAmount, payUrl, reminderText,
   shortDate, summarize, validateLogin, validateOrder, validateSignup, waLink,
 } from './logic.js';
 
@@ -114,6 +114,7 @@ function show(view) {
 function signedOut(message) {
   state.user = null;
   state.orders = [];
+  clearTimeout(refreshTimer);
   saving = false;
   if ($('#orderDialog').open) $('#orderDialog').close();
   show('landing');
@@ -188,13 +189,19 @@ function orderCard(o) {
   const profit = o.priceFils - o.costFils;
   const actions = el('div', { class: 'o-actions' });
 
+  const link = o.method === 'link' && o.payToken ? payUrl(location.origin, o.payToken) : null;
   if (o.status === 'unpaid') {
     const text = reminderText({
-      customerName: o.customerName, item: o.item, priceFils: o.priceFils, shopName: state.user?.shopName,
+      customerName: o.customerName, item: o.item, priceFils: o.priceFils, shopName: state.user?.shopName, payUrl: link,
     });
     actions.append(el('a', {
       class: 'btn wa', href: waLink(o.customerPhone, text), target: '_blank', rel: 'noopener noreferrer',
-    }, waIcon(), 'ذكّر بالواتساب'));
+    }, waIcon(), link ? 'ذكّر وأرسل رابط الدفع' : 'ذكّر بالواتساب'));
+    if (link) {
+      actions.append(el('button', {
+        type: 'button', class: 'btn link', onclick: () => copyPayLink(link),
+      }, 'نسخ رابط الدفع'));
+    }
   }
 
   for (const a of nextActions(o)) {
@@ -209,6 +216,13 @@ function orderCard(o) {
     onclick: (ev) => removeOrder(o, ev.currentTarget),
   }, 'حذف'));
 
+  let payNote = null;
+  if (o.status === 'paid' && o.paidVia === 'link') {
+    payNote = el('div', { class: 'o-pay ok', text: '💳 الزبون دفع من رابط الدفع، وانسجل «وصلني» لحاله' });
+  } else if (o.status === 'unpaid' && o.payFailedAt) {
+    payNote = el('div', { class: 'o-pay fail', text: `⚠️ الزبون حاول يدفع والدفع انرفض (${shortTime(o.payFailedAt)})` });
+  }
+
   return el('li', { class: `order st-${o.status}`, 'data-id': o.id },
     el('div', { class: 'o-main' },
       el('div', { class: 'o-top' },
@@ -222,7 +236,24 @@ function orderCard(o) {
     el('div', { class: 'o-amount' },
       el('strong', { text: formatKWD(o.priceFils) }),
       el('small', { class: profit < 0 ? 'loss' : null, text: `${profit < 0 ? 'خسارة' : 'ربح'} ${formatKWD(Math.abs(profit), { unit: false })}` })),
+    payNote,
     actions);
+}
+
+/** "2026-11-16T15:04:00Z" → "6:04 م" (Kuwait time). */
+function shortTime(value) {
+  const t = new Date(value);
+  if (Number.isNaN(t.getTime())) return '';
+  return t.toLocaleTimeString('ar-KW-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kuwait' });
+}
+
+async function copyPayLink(link) {
+  try {
+    await navigator.clipboard.writeText(link);
+    toast('انسخ رابط الدفع ✅ ألصقه للزبون');
+  } catch {
+    window.prompt('انسخ رابط الدفع:', link);
+  }
 }
 
 function waIcon() {
@@ -253,6 +284,7 @@ function render() {
   $('#shopName').textContent = state.user?.shopName || '';
   renderStats();
   renderList();
+  scheduleRefresh();
 }
 
 async function loadOrders() {
@@ -263,10 +295,65 @@ async function loadOrders() {
   show('app');
 }
 
+/* ---------------- payment links: the order turns «وصلني» by itself ---------------- */
+
+// While a «رابط دفع» order is waiting, check every few seconds whether the customer paid on the link.
+const REFRESH_MS = 5000;
+let refreshTimer = 0;
+let refreshing = false;
+let busyActions = 0; // a status change / delete in flight → skip this round
+
+const waitingForLink = () => state.orders.some((o) => o.method === 'link' && o.status === 'unpaid');
+
+function scheduleRefresh() {
+  clearTimeout(refreshTimer);
+  if (!state.user || !waitingForLink()) return;
+  refreshTimer = setTimeout(refreshOrders, REFRESH_MS);
+}
+
+async function refreshOrders() {
+  if (refreshing || !state.user) return;
+  if (document.hidden || saving || busyActions || $('#orderDialog').open) {
+    scheduleRefresh();
+    return;
+  }
+  refreshing = true;
+  try {
+    const before = new Map(state.orders.map((o) => [o.id, o]));
+    const { orders } = await api('/api/orders');
+    if (!state.user || saving || busyActions) return;
+    const key = (o) => `${o.id}|${o.status}|${o.paidVia}|${o.payFailedAt}`;
+    const changed = orders.length !== state.orders.length || orders.some((o) => key(o) !== key(before.get(o.id) || {}));
+    if (!changed) return;
+    const paidNow = orders.filter((o) => o.paidVia === 'link' && o.status === 'paid' && before.get(o.id)?.status === 'unpaid');
+    const failedNow = orders.filter((o) => o.payFailedAt && o.payFailedAt !== before.get(o.id)?.payFailedAt);
+    state.orders = orders;
+    if (paidNow.length && state.tab === 'unpaid') state.tab = 'month';
+    render();
+    for (const o of paidNow) $(`#orderList [data-id="${o.id}"]`)?.classList.add('flash');
+    if (paidNow.length) {
+      const o = paidNow[0];
+      toast(`💳 ${o.customerName} دفع ${formatKWD(o.priceFils)} من الرابط، وصار «وصلني» لحاله ✅`);
+    } else if (failedNow.length) {
+      toast(`⚠️ ${failedNow[0].customerName} حاول يدفع والبطاقة انرفضت`, 'error');
+    }
+  } catch {
+    // offline for a moment — try again next round
+  } finally {
+    refreshing = false;
+    scheduleRefresh();
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.user) refreshOrders();
+});
+
 /* ---------------- actions ---------------- */
 
 async function changeStatus(order, action, button) {
   setBusy(button, true);
+  busyActions += 1;
   try {
     const { order: updated } = await api('/api/orders', { method: 'PATCH', body: { id: order.id, status: action.to } });
     state.orders = state.orders.map((o) => (o.id === updated.id ? updated : o));
@@ -279,6 +366,8 @@ async function changeStatus(order, action, button) {
       render();
     }
     if (err.status !== 401) toast(err.message, 'error');
+  } finally {
+    busyActions -= 1;
   }
 }
 
@@ -305,6 +394,7 @@ async function removeOrder(order, button) {
   button.dataset.armed = '';
   button.setAttribute('aria-label', `نحذف طلب ${order.customerName}…`);
   setBusy(button, true, 'نحذف…');
+  busyActions += 1;
   try {
     await api('/api/orders', { method: 'DELETE', body: { id: order.id } });
     state.orders = state.orders.filter((o) => o.id !== order.id);
@@ -319,6 +409,8 @@ async function removeOrder(order, button) {
     setBusy(button, false);
     disarm();
     if (err.status !== 401) toast(err.message, 'error');
+  } finally {
+    busyActions -= 1;
   }
 }
 

@@ -35,7 +35,7 @@ const page = await fetch(base + '/');
 const html = await page.text();
 check('home page loads', page.status === 200 && html.includes('دفتري'), String(page.status));
 check('security headers', Boolean(page.headers.get('content-security-policy')) && page.headers.get('x-frame-options') === 'DENY');
-for (const f of ['/app.js', '/logic.js', '/styles.css', '/favicon.svg']) {
+for (const f of ['/app.js', '/logic.js', '/pay.js', '/styles.css', '/favicon.svg']) {
   const r = await fetch(base + f);
   check(`asset ${f}`, r.status === 200, String(r.status));
 }
@@ -77,6 +77,32 @@ const foreign = await fetch(base + '/api/orders', {
 check('CSRF: foreign origin refused', foreign.status === 403, String(foreign.status));
 const wrong = await call('/api/auth', { method: 'POST', body: { action: 'login', email: `smoke-a-${stamp}@example.test`, password: 'wrong-password' } });
 check('wrong password refused', wrong.status === 401);
+
+// Payment link: a «رابط دفع» order → the customer pays on /pay → the order turns «وصلني» by itself.
+const linkOrder = await call('/api/orders', {
+  method: 'POST', cookie: a.cookie,
+  body: { customerName: 'زبون رابط', customerPhone: '66123456', item: 'كيكة', price: '18', cost: '7', method: 'link' },
+});
+const token = linkOrder.json?.order?.payToken;
+check('«رابط دفع» order gets a payment link token', /^[A-Za-z0-9_-]{32}$/.test(token || ''), String(linkOrder.status));
+const payPage = await fetch(`${base}/pay?t=${token}`);
+check('payment page /pay loads', payPage.status === 200 && (await payPage.text()).includes('pay.js'), String(payPage.status));
+const info = await call(`/api/pay?t=${token}`);
+check('payment link shows the order (no phone)', info.json?.order?.priceFils === 18000 && !JSON.stringify(info.json).includes('965'), `${info.status} mode=${info.json?.mode}`);
+check('wrong payment link → 404', (await call(`/api/pay?t=${'A'.repeat(32)}`)).status === 404);
+if (info.json?.mode === 'test') {
+  const no = await call('/api/pay', { method: 'POST', body: { action: 'test', t: token, outcome: 'declined' } });
+  check('declined test card → stays unpaid', no.json?.result === 'declined' && no.json?.order?.status === 'unpaid');
+  const yes = await call('/api/pay', { method: 'POST', body: { action: 'test', t: token, outcome: 'success' } });
+  check('good test card → paid', yes.json?.result === 'paid');
+  const seen = (await call('/api/orders', { cookie: a.cookie })).json?.orders?.find((o) => o.id === linkOrder.json?.order?.id);
+  check('seller sees «وصلني» paid by link, by itself', seen?.status === 'paid' && seen?.paidVia === 'link');
+} else {
+  const co = await call('/api/pay', { method: 'POST', body: { action: 'checkout', t: token } });
+  check('Stripe mode: checkout gives a Stripe page', /^https:\/\/checkout\.stripe\.com\//.test(co.json?.url || ''), String(co.status));
+}
+check('A deletes the link order', (await call('/api/orders', { method: 'DELETE', cookie: a.cookie, body: { id: linkOrder.json?.order?.id } })).status === 200);
+check('deleted order\'s payment link stops working', (await call(`/api/pay?t=${token}`)).status === 404);
 
 check('A deletes the order', (await call('/api/orders', { method: 'DELETE', cookie: a.cookie, body: { id } })).status === 200);
 for (const s of [a, b]) {

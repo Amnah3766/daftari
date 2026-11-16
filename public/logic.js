@@ -103,15 +103,55 @@ export function displayPhone(digits) {
   return d ? `+${d}` : '';
 }
 
-export function reminderText({ customerName, item, priceFils, shopName }) {
+/** With payUrl (orders paid by link) the message carries the customer's own payment link. */
+export function reminderText({ customerName, item, priceFils, shopName, payUrl }) {
   const name = String(customerName || '').trim();
   const shop = String(shopName || '').trim();
   return [
     `هلا ${name} 🌸`,
     `حبيت أذكرك بطلب «${String(item || '').trim()}» بمبلغ ${formatKWD(priceFils)}.`,
-    'إذا حوّلت تجاهل هالرسالة، وشكراً لك 🙏',
+    payUrl ? `تقدر تدفع من هالرابط:\n${payUrl}` : '',
+    payUrl ? 'أول ما تدفع يوصلني تأكيد لحاله، وشكراً لك 🙏' : 'إذا حوّلت تجاهل هالرسالة، وشكراً لك 🙏',
     shop ? `— ${shop}` : '',
   ].filter(Boolean).join('\n');
+}
+
+/* ---------------- payment link ---------------- */
+
+/** The secret part of a customer's payment link (/pay?t=…): 24 random bytes in base64url. */
+export const PAY_TOKEN_RE = /^[A-Za-z0-9_-]{32}$/;
+
+export function payUrl(origin, token) {
+  return `${String(origin || '').replace(/\/$/, '')}/pay?t=${token}`;
+}
+
+/**
+ * The built-in TEST gateway (used when the server has no Stripe key) accepts only Stripe's published test cards:
+ * 4242 4242 4242 4242 → paid, 4000 0000 0000 0002 → declined. Anything else → null (not a test card).
+ * The card number never leaves the browser.
+ */
+export const TEST_CARDS = { success: '4242424242424242', declined: '4000000000000002' };
+
+export function testCardOutcome(number) {
+  const digits = toLatinDigits(number).replace(/[\s-]/g, '');
+  if (digits === TEST_CARDS.success) return 'success';
+  if (digits === TEST_CARDS.declined) return 'declined';
+  return null;
+}
+
+/** "4242424242424242" → "4242 4242 4242 4242" while typing (max 16 digits). */
+export function formatCardNumber(value) {
+  return toLatinDigits(value).replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 ');
+}
+
+/** Expiry "MM/YY" in the future (Kuwait date is close enough for a test form). */
+export function validExpiry(value, now = new Date()) {
+  const m = /^(\d{2})\s*\/\s*(\d{2})$/.exec(toLatinDigits(value).trim());
+  if (!m) return false;
+  const month = Number(m[1]);
+  const year = 2000 + Number(m[2]);
+  if (month < 1 || month > 12) return false;
+  return year > now.getUTCFullYear() || (year === now.getUTCFullYear() && month >= now.getUTCMonth() + 1);
 }
 
 export function waLink(digits, text) {

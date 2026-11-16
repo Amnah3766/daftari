@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>دفع الطلب — دفتري</title>
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#1d2433">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/pay.js"></script>
+</head>
+<body class="pay-page">
+  <header class="topbar">
+    <div class="wrap topbar-in">
+      <span class="brand">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <rect x="6" y="3" width="21" height="26" rx="4" fill="#1d2433"/>
+          <rect x="6" y="3" width="6" height="26" rx="3" fill="#e2583e"/>
+          <path d="M16 11h7M16 16h7M16 21h4" stroke="#fbf7f0" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span>دفع الطلب</span>
+      </span>
+      <span class="pay-lock">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Z"/></svg>
+        دفع آمن
+      </span>
+    </div>
+  </header>
+
+  <main class="wrap pay-wrap" id="main">
+    <div id="payBoot" class="boot" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>لحظة، نفتح طلبك…</span>
+    </div>
+
+    <section id="payMissing" class="pay-card" hidden>
+      <div class="result bad" role="alert">
+        <span class="r-ico" aria-hidden="true">✕</span>
+        <strong>رابط الدفع غير صحيح</strong>
+        <span>تأكد إنك فتحت الرابط كامل من رسالة الواتساب، أو اطلب رابط جديد من المحل.</span>
+      </div>
+    </section>
+
+    <section id="payBox" class="pay-card" hidden aria-labelledby="pAmount">
+      <p class="pay-hello" id="pHello"></p>
+      <p class="pay-shop">طلبك من <b id="pShop"></b></p>
+      <p class="pay-item" id="pItem"></p>
+      <p class="pay-amount" id="pAmount"></p>
+
+      <div id="rPaid" class="result ok" role="status" hidden>
+        <span class="r-ico" aria-hidden="true">✓</span>
+        <strong>تم الدفع</strong>
+        <span id="rPaidText"></span>
+      </div>
+
+      <div id="rDeclined" class="result bad" role="alert" hidden>
+        <span class="r-ico" aria-hidden="true">✕</span>
+        <strong id="rDeclinedTitle">انرفض الدفع</strong>
+        <span id="rDeclinedText"></span>
+      </div>
+
+      <!-- Built-in TEST gateway (when the server has no Stripe key). The card number never leaves this page. -->
+      <form id="testForm" class="form pay-form" novalidate hidden>
+        <div class="test-note">
+          <strong>🧪 بوابة دفع تجريبية</strong>
+          <span>لا تكتب بطاقة حقيقية، وما ينخصم أي مبلغ.</span>
+          <span class="cards">✔ بطاقة تنجح: <b dir="ltr">4242 4242 4242 4242</b></span>
+          <span class="cards">✖ بطاقة تنرفض: <b dir="ltr">4000 0000 0000 0002</b></span>
+        </div>
+        <label class="field">
+          <span>رقم البطاقة</span>
+          <input type="text" name="card" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="4242 4242 4242 4242" maxlength="19" required>
+          <em class="err" data-error-for="card"></em>
+        </label>
+        <div class="grid2 tight">
+          <label class="field">
+            <span>تاريخ الانتهاء</span>
+            <input type="text" name="exp" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="MM/YY" maxlength="5" required>
+            <em class="err" data-error-for="exp"></em>
+          </label>
+          <label class="field">
+            <span>CVC</span>
+            <input type="text" name="cvc" inputmode="numeric" autocomplete="off" dir="ltr" placeholder="123" maxlength="4" required>
+            <em class="err" data-error-for="cvc"></em>
+          </label>
+        </div>
+        <p class="form-error" role="alert"></p>
+        <button type="submit" class="btn accent block pay-btn" id="testPayBtn">ادفع</button>
+      </form>
+
+      <!-- Stripe Checkout (test mode), when the server has a Stripe test key. -->
+      <div id="stripeBox" class="pay-form" hidden>
+        <button type="button" class="btn accent block pay-btn" id="stripeBtn">ادفع بالبطاقة</button>
+        <p class="pay-note">تنتقل لصفحة الدفع الآمنة من Stripe (وضع الاختبار: بطاقة <b dir="ltr">4242 4242 4242 4242</b>).</p>
+      </div>
+    </section>
+
+    <p class="pay-foot">أول ما تدفع، الطلب يتسجل «وصلني» عند المحل لحاله. خدمة الدفع من <b>دفتري</b>.</p>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

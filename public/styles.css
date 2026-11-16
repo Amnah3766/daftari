@@ -289,6 +289,54 @@ dialog[open] { animation: sheet .22s ease both; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast.error { background: var(--danger); }
 
+/* ---------- payment link on an order card ---------- */
+.btn.link { background: #eef1f8; color: var(--ink); border-color: #d9deea; }
+.btn.link:hover { background: #e2e7f2; }
+.o-pay { grid-column: 1 / -1; font-size: .83rem; font-weight: 600; border-radius: 10px; padding: 6px 10px; }
+.o-pay.ok { background: var(--green-soft); color: var(--green); }
+.o-pay.fail { background: #fdecea; color: var(--danger); }
+.order.flash { animation: flash 1.6s ease 2; }
+@keyframes flash { 0%, 100% { box-shadow: var(--shadow); } 40% { box-shadow: 0 0 0 4px rgba(31, 138, 91, .45), var(--shadow); } }
+
+/* ---------- customer payment page (/pay) ---------- */
+.pay-lock { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 600; font-size: .9rem; }
+.pay-lock svg { width: 16px; height: 16px; }
+.pay-wrap { max-width: 520px; padding-top: 22px; padding-bottom: 40px; }
+.pay-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow-lg);
+  padding: 20px 18px; display: grid; gap: 6px;
+}
+.pay-hello { margin: 0; font-size: 1.1rem; font-weight: 700; }
+.pay-shop { margin: 0; color: var(--muted); }
+.pay-shop b { color: var(--ink); }
+.pay-item { margin: 4px 0 0; color: var(--ink-2); overflow-wrap: anywhere; }
+.pay-amount { margin: 2px 0 10px; font-size: 2.2rem; font-weight: 700; direction: ltr; unicode-bidi: isolate; text-align: right; }
+.pay-form { margin-top: 6px; }
+.pay-btn { min-height: 54px; font-size: 1.05rem; }
+.pay-note { margin: 10px 0 0; color: var(--muted); font-size: .85rem; text-align: center; }
+.pay-foot { color: var(--muted); font-size: .82rem; text-align: center; margin: 16px 0 0; }
+.grid2.tight { grid-template-columns: 1fr 1fr; }
+.test-note {
+  display: grid; gap: 2px; background: #fff8e6; border: 1px dashed #e8c66a; color: #7a5a00;
+  border-radius: 12px; padding: 10px 12px; font-size: .88rem;
+}
+.test-note .cards b { font-weight: 700; unicode-bidi: isolate; white-space: nowrap; }
+.result {
+  display: grid; justify-items: center; text-align: center; gap: 4px; border-radius: 16px; padding: 18px 14px; margin: 6px 0;
+}
+.result strong { font-size: 1.35rem; }
+.result.ok { background: var(--green-soft); color: var(--green); }
+.result.bad { background: #fdecea; color: var(--danger); }
+.result span:last-child { color: var(--ink-2); }
+.r-ico {
+  width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-size: 1.8rem; font-weight: 700; color: #fff;
+  animation: pop .35s ease both;
+}
+.result.ok .r-ico { background: var(--green); }
+.result.bad .r-ico { background: var(--danger); }
+@keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+body.pay-page .toast { bottom: 28px; }
+
 .foot { color: var(--muted); font-size: .8rem; text-align: center; padding: 18px 0 24px; border-top: 1px solid var(--line); }
 body.in-app .foot { display: none; }
 
