@@ -61,13 +61,13 @@ function el(tag, props = {}, ...children) {
 }
 
 let toastTimer = 0;
-function toast(message, type = 'ok') {
+function toast(message, type = 'ok', ms = type === 'error' ? 4200 : 2600) {
   const t = $('#toast');
   t.textContent = message;
   t.classList.toggle('error', type === 'error');
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), type === 'error' ? 4200 : 2600);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 function setBusy(button, busy, busyText) {
@@ -333,7 +333,7 @@ async function refreshOrders() {
     for (const o of paidNow) $(`#orderList [data-id="${o.id}"]`)?.classList.add('flash');
     if (paidNow.length) {
       const o = paidNow[0];
-      toast(`💳 ${o.customerName} دفع ${formatKWD(o.priceFils)} من الرابط، وصار «وصلني» لحاله ✅`);
+      toast(`💳 ${o.customerName} دفع ${formatKWD(o.priceFils)} من الرابط، وصار «وصلني» لحاله ✅`, 'ok', 6000);
     } else if (failedNow.length) {
       toast(`⚠️ ${failedNow[0].customerName} حاول يدفع والبطاقة انرفضت`, 'error');
     }
